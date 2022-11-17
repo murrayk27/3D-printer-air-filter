@@ -15,4 +15,4 @@ Controlling the fan speeds: https://fdossena.com/?p=ArduinoFanControl/i.md
 
 Reading the temp sensors: https://randomnerdtutorials.com/guide-for-ds18b20-temperature-sensor-with-arduino/
 
-LCD screen: https://howtomechatronics.com/tutorials/arduino/lcd-tutorial/
+LCD screen control: https://howtomechatronics.com/tutorials/arduino/lcd-tutorial/
