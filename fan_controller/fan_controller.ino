@@ -3,7 +3,7 @@
 #include <DallasTemperature.h>
 #include <LiquidCrystal.h> // includes the LiquidCrystal Library 
  
-// Data wire is conntec to the Arduino digital pin 4
+// Data wire is conntec to the Arduino digital pin 8
 #define ONE_WIRE_BUS 8
 
 // Setup a oneWire instance to communicate with any OneWire devices
