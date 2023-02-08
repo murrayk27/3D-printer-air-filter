@@ -1,5 +1,5 @@
 # 3D-printer-air-filter
-Scripts for arduino uno for modulating up to 3 fan speeds based on temperature feedback. This is to be used for filtering the air of 3D printer enclosures.
+Scripts for arduino uno for modulating up to 3 fan speeds based on temperature feedback. This is to be used for filtering the 
 
 ## Hardware:
 

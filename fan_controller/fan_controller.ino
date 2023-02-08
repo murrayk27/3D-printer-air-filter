@@ -8,8 +8,11 @@
 
 // Setup a oneWire instance to communicate with any OneWire devices
 OneWire oneWire(ONE_WIRE_BUS);
-float set_temp = 23.0; // if temp lower than set the fan will idle at lowest speed
+float set_temp = 24.0; // if temp lower than set the fan will idle at lowest speed
 float max_temp = 30.0; // if temp higher than max the fan run at full blast
+
+float max_power_frac = 0.7; // The maximum power fraction that the fans can be set to e.g 0.7 will run the fans at 70%
+float min_power_frac = 0.2; // The maximum power fraction that the fans can be set to e.g 0.7 will run the fans at 70%
 // Pass our oneWire reference to Dallas Temperature sensor 
 DallasTemperature sensors(&oneWire);
 
@@ -17,9 +20,9 @@ int numberOfDevices; // Number of temperature devices found
 DeviceAddress tempDeviceAddress;
 DeviceAddress Thermometer;
 
-uint8_t sens1_ID[8] = {0x28, 0x13, 0xE3, 0x16, 0xA8, 0x01, 0x3C, 0xB3};
-uint8_t sens2_ID[8] = {0x28, 0x90, 0xE7, 0x16, 0xA8, 0x01, 0x3C, 0x1F};
-uint8_t sens3_ID[8] = {0x28, 0xBF, 0xC1, 0x16, 0xA8, 0x01, 0x3C, 0xE9};
+uint8_t sens1_ID[8] = {0x28, 0x13, 0xE3, 0x16, 0xA8, 0x01, 0x3C, 0xB3};  // Address of sensor 1
+uint8_t sens2_ID[8] = {0x28, 0x90, 0xE7, 0x16, 0xA8, 0x01, 0x3C, 0x1F};  // Address of sensor 2
+uint8_t sens3_ID[8] = {0x28, 0xBF, 0xC1, 0x16, 0xA8, 0x01, 0x3C, 0xE9};  // Address of sensor 3
 
 int deviceCount = 0;
 
@@ -72,10 +75,11 @@ void setPWMF2(float f){
     f=f<0?0:f>1?1:f;
     OCR2B = (uint8_t)(79*f);
 }
+
 void setup(){
     lcd.begin(16, 2);
     lcd.clear();
-    lcd.print("Init Arduino");
+    lcd.print("Init Arduino"); // Splash screen when arduino boots up
 
     //enable outputs for Timer 1
     Serial.begin(9600);      
@@ -85,12 +89,12 @@ void setup(){
     // Grab a count of devices on the wire
   
   // locate devices on the bus
-  Serial.println("Locating devices...");
-  Serial.print("Found ");
-  deviceCount = sensors.getDeviceCount();
-  Serial.print(deviceCount, DEC);
-  Serial.println(" devices.");
-  Serial.println("");
+    Serial.println("Locating devices...");
+    Serial.print("Found ");
+    deviceCount = sensors.getDeviceCount();
+    Serial.print(deviceCount, DEC);
+    Serial.println(" devices.");
+    Serial.println("");
 
   for (int i = 0;  i < deviceCount;  i++)
   {
@@ -98,25 +102,9 @@ void setup(){
     Serial.print(i+1);
     Serial.print(" : ");
     sensors.getAddress(Thermometer, i);
-    printAddress(Thermometer);
+    printAddress(Thermometer); // prints the address of each connected sensor
   }
-  // Loop through each device, print out address
-//  for(int i=0;i<numberOfDevices; i++) {
-//    // Search the wire for address
-//    if(sensors.getAddress(tempDeviceAddress, i)) {
-//      Serial.print("Found device ");
-//      Serial.print(i, DEC);
-//      Serial.print(" with address: ");
-//      printAddress(tempDeviceAddress);
-//      
- //     Serial.println();
-//		} else {
-//		  Serial.print("Found ghost device at ");
-//		  Serial.print(i, DEC);
-//		  Serial.print(" but could not detect address. Check power and cabling");
-	//	}
-  //}
-     
+    // Configuring pins 9,10,3 to output the PWM frequency
     pinMode(9,OUTPUT); //1A
     pinMode(10,OUTPUT); //1B
     setupTimer1();
@@ -125,60 +113,57 @@ void setup(){
     setupTimer2();
     //note that pin 11 will be unavailable for output in this mode!
     //example...
-    setPWMF1(0.0f); //set duty to 10% on pin 9 labeled 'fan 1'
-    setPWMF3(0.0f); //set duty to 10% on pin 10 'fan 3'
-    setPWMF2(0.0f); //set duty to 10% on pin 3 'fan 2'
+    setPWMF1(0.2f); //set duty to 20% on pin 9 labeled 'fan 1'
+    setPWMF2(0.2f); //set duty to 20% on pin 3 'fan 2'
+    setPWMF3(0.2f); //set duty to 20% on pin 10 'fan 3'
 }
+
+void adjust_speed(int fan_ID, float sens_temp) // function to adjust the fan speed based on he sensor temperature
+{
+  float temp_frac = 0.5;
+  if (sens_temp > max_temp)
+    { temp_frac = max_power_frac; // set fan to full power if temp above max
+    }
+    else if (sens_temp > set_temp)
+    {
+      float power_frac = (max_power_frac-min_power_frac)*(sens_temp-set_temp)/(max_temp-set_temp)+min_power_frac;       
+      temp_frac = power_frac; // proportionally ramp up fan speed
+    }       
+    else
+    { temp_frac = min_power_frac;
+    }    
+    
+    if (fan_ID == 1) // yeah it's gross, I know
+    {setPWMF1(temp_frac);      
+    }
+    else if(fan_ID == 2)
+    {setPWMF2(temp_frac); 
+    }
+    else if(fan_ID == 3)
+    {setPWMF3(temp_frac); 
+    }
+}
+
 void loop(){
     sensors.requestTemperatures(); 
   
     Serial.print("Sensor 1 Temp: ");
-
     float temp1 = sensors.getTempC(sens1_ID);
-    if (temp1 > max_temp)
-    { setPWMF1(1.0f); // set fan to full power if temp above max
-    }
-    else if (temp1 > set_temp)
-    {
-      float power_frac = 0.5*(temp1-set_temp)/(max_temp-set_temp)+0.5;       
-      setPWMF1(power_frac); // proportionally ramp up fan speed
-    }       
-    else
-    { setPWMF1(0.0f);
-    }   
-    
+    adjust_speed(1,temp1);
     Serial.print(temp1);
     Serial.print(" C | ");
 
     Serial.print("Sensor 2 Temp: ");
 
     float temp2 = sensors.getTempC(sens2_ID); 
-    if (temp2 > max_temp)
-    { setPWMF2(1.0f);      
-    }
-    else if (temp2 > set_temp)
-    {
-      float power_frac = 0.5*(temp2-set_temp)/(max_temp-set_temp)+0.5;       
-      setPWMF2(power_frac);
-    } else
-    { setPWMF2(0.0f);
-    }   
+    adjust_speed(2,temp2);  
     Serial.print(temp2);
     Serial.print(" C | ");
  
     Serial.print("Sensor 3 Temp: ");
 
     float temp3 = sensors.getTempC(sens3_ID); 
-    if (temp3 > max_temp)
-    { setPWMF3(1.0f);      
-    }
-    else if (temp3 > set_temp)
-    {
-      float power_frac = 0.5*(temp3-set_temp)/(max_temp-set_temp)+0.5;       
-      setPWMF3(power_frac);
-    } else
-    { setPWMF3(0.0f);
-    }    
+    adjust_speed(3,temp3); 
     Serial.print(temp3);
     Serial.print(" C ");
     Serial.print("\n"); 
